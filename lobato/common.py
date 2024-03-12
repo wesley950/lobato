@@ -1,8 +1,17 @@
-def get_most_common_byte_pair(tokens: list[int]) -> dict:
-    counts = {}
+import torch
+import regex as re
+
+pattern = r" ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|s+"
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
+
+
+def get_stats(tokens: list[int], current_stats: dict | None = None) -> dict:
+    if current_stats == None:
+        current_stats = {}
     for pair in zip(tokens, tokens[1:]):
-        counts[pair] = counts.get(pair, 0) + 1
-    return counts
+        current_stats[pair] = current_stats.get(pair, 0) + 1
+    return current_stats
 
 
 def merge(ids, pair, idx):

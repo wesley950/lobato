@@ -1,31 +1,36 @@
-import pickle
+import pickle, json
+import regex as re
 
-from .common import get_most_common_byte_pair, merge
-from model_settings import merge_count
+from .common import get_stats, merge, pattern
+from .model_settings import merge_count, dataset
 
-with open("data/unb.txt", "r") as file:
+with open(dataset, "r") as file:
     text = file.read()
 
-tokens = text.encode()
-tokens = list(map(int, tokens))
-
+chunks = list(set(re.findall(pattern, text, flags=re.IGNORECASE)))
+tokens = [list(chunk.encode()) for chunk in chunks]
 
 merges = {}
-
+vocab = {idx: bytes([idx]) for idx in range(256)}
 for step in range(merge_count):
-    step_idx = step + 256
-    stats = get_most_common_byte_pair(tokens)
+    stats = {}
+    for chunk_ids in tokens:
+        get_stats(chunk_ids, stats)
+
     most_common = max(stats, key=stats.get)
-    tokens = merge(tokens, most_common, step_idx)
+    step_idx = step + 256
+    tokens = [merge(chunk_ids, most_common, step_idx) for chunk_ids in tokens]
     merges[most_common] = step_idx
+    vocab[step_idx] = vocab[most_common[0]] + vocab[most_common[1]]
+
+
+print("Resulting vocab:")
+for idx, rep in vocab.items():
+    print(f"{idx} => {rep.decode(errors='replace')}")
 
 with open("data/merges.pkl", "wb") as file:
     pickle.dump(merges, file)
 
-
-vocab = {idx: bytes([idx]) for idx in range(256)}
-for (po, pi), idx in merges.items():
-    vocab[idx] = vocab[po] + vocab[pi]
 
 with open("data/vocab.pkl", "wb") as file:
     pickle.dump(vocab, file)

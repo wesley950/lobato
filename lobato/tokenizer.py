@@ -1,5 +1,7 @@
 import pickle
-from .common import get_most_common_byte_pair, merge
+import regex as re
+
+from .common import get_stats, merge, pattern
 
 with open("data/merges.pkl", "rb") as file:
     merges = pickle.load(file)
@@ -8,18 +10,28 @@ with open("data/vocab.pkl", "rb") as file:
     vocab = pickle.load(file)
 
 
-def encode(text: str):
-    text_tokens = text.encode()
-    text_tokens = list(map(int, text_tokens))
-    while True:
-        stats = get_most_common_byte_pair(text_tokens)
+def _encode_chunk(chunk_bytes: bytes):
+    tokens = list(chunk_bytes)
+    while len(tokens) >= 2:
+        stats = get_stats(tokens)
         pair = min(stats, key=lambda p: merges.get(p, float("inf")))
         if pair not in merges:
             break
         idx = merges[pair]
-        text_tokens = merge(text_tokens, pair, idx)
+        tokens = merge(tokens, pair, idx)
+    return tokens
 
-    return text_tokens
+
+def encode(text: str):
+    chunks = re.findall(pattern, text, flags=re.IGNORECASE)
+    tokens = []
+
+    for chunk in chunks:
+        chunk_bytes = chunk.encode()
+        chunk_tokens = _encode_chunk(chunk_bytes)
+        tokens.extend(chunk_tokens)
+
+    return tokens
 
 
 def decode(tokens: list[int]):
@@ -27,7 +39,4 @@ def decode(tokens: list[int]):
     return items.decode(errors="replace")
 
 
-msg = "O Campus Darcy Ribeiro é o campus mais antigo da Universidade de Brasília."
-print(encode(msg))
-print(msg)
-print(decode(encode(msg)))
+print(f"Vocab size: {len(vocab)}")
